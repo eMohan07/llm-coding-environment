@@ -1,72 +1,87 @@
-from parser import extract_code
+import verifiers as vf
 
-from rubrics import (
-    syntax_rubric,
-    function_rubric,
-    correctness_rubric
+from parser import code_parser
+
+
+FUNCTION_NAME = "add_numbers"
+
+TESTS = [
+    ((2, 3), 5),
+    ((10, 20), 30),
+    ((-5, 5), 0)
+]
+
+
+async def syntax_reward(completion, parser):
+
+    code = parser.parse_answer(completion)
+
+    try:
+        compile(code, "<generated_code>", "exec")
+        return 1.0
+
+    except Exception:
+        return 0.0
+
+
+async def function_reward(completion, parser):
+
+    code = parser.parse_answer(completion)
+
+    namespace = {}
+
+    try:
+        exec(code, namespace)
+
+        return float(FUNCTION_NAME in namespace)
+
+    except Exception:
+        return 0.0
+
+
+async def correctness_reward(completion, parser):
+
+    code = parser.parse_answer(completion)
+
+    namespace = {}
+
+    try:
+        exec(code, namespace)
+
+        function = namespace[FUNCTION_NAME]
+
+    except Exception:
+        return 0.0
+
+    passed = 0
+
+    for inputs, expected in TESTS:
+
+        try:
+
+            actual = function(*inputs)
+
+            if actual == expected:
+                passed += 1
+
+        except Exception:
+            pass
+
+    return passed / len(TESTS)
+
+
+rubric = vf.Rubric(
+    funcs=[
+        syntax_reward,
+        function_reward,
+        correctness_reward
+    ],
+
+    weights=[
+        0.2,
+        0.2,
+        0.6
+    ],
+
+    parser=code_parser
 )
-
-
-class VerifierCodingEnvironment:
-
-    def __init__(self):
-
-        self.function_name = "add_numbers"
-
-        self.tests = [
-
-            ((2, 3), 5),
-
-            ((10, 20), 30),
-
-            ((-5, 5), 0)
-
-        ]
-
-    def evaluate(self, model_response):
-
-        # Parse AI response
-        code = extract_code(model_response)
-
-        # Run rubrics
-        syntax_score = syntax_rubric(code)
-
-        function_score = function_rubric(
-            code,
-            self.function_name
-        )
-
-        correctness_score = correctness_rubric(
-            code,
-            self.function_name,
-            self.tests
-        )
-
-        # Combine rubric scores
-        final_score = (
-
-            syntax_score * 0.2
-
-            +
-
-            function_score * 0.2
-
-            +
-
-            correctness_score * 0.6
-
-        )
-
-        return {
-
-            "code": code,
-
-            "syntax_score": syntax_score,
-
-            "function_score": function_score,
-
-            "correctness_score": correctness_score,
-
-            "final_score": final_score
-
-        }

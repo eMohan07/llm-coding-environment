@@ -1,13 +1,16 @@
-def extract_code(response):
+import verifiers as vf
 
-    if "```python" in response:
-        code = response.split("```python")[1]
-        code = code.split("```")[0]
-        return code.strip()
 
-    if "```" in response:
-        code = response.split("```")[1]
-        code = code.split("```")[0]
-        return code.strip()
+def extract_code(text):
+    """Extract Python code from a markdown response."""
 
-    return response.strip()
+    if "```python" in text:
+        return text.split("```python")[1].split("```")[0].strip()
+
+    if "```" in text:
+        return text.split("```")[1].split("```")[0].strip()
+
+    return text.strip()
+
+
+code_parser = vf.Parser(extract_fn=extract_code)
